@@ -1,0 +1,14 @@
+# Web framework
+fastapi
+uvicorn[standard]
+
+# WebSockets
+websockets
+
+# Data processing
+numpy
+pandas
+
+# Machine Learning
+scikit-learn
+tensorflow
