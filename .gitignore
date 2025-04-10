@@ -12,6 +12,3 @@ __pycache__/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Model
-trained_models/
