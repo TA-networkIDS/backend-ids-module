@@ -1,5 +1,5 @@
 # Web framework
-fastapi
+fastapi[standard]
 uvicorn[standard]
 
 # WebSockets
