@@ -1,10 +1,12 @@
 import uvicorn
 from fastapi import FastAPI
 from app.api.routes import routes
+from app.api.websockets import websocket
 
 app = FastAPI()
 
 app.include_router(routes.router)
+app.include_router(websocket.router)
 
 @app.get("/")
 async def root():
