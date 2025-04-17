@@ -9,92 +9,78 @@ import joblib
 import os
 import tensorflow as tf
 from app.models.model import predict as model_predict
-
+from app.preprocessing.payload import create_broadcast_payload
 router = APIRouter()
 
-# Constants
-BATCH_SIZE = 1  # Number of packets to process in a batch
-PROCESS_INTERVAL = 0.001  # Process data every 2 seconds
+# # Constants
+# BATCH_SIZE = 1  # Number of packets to process in a batch
+# PROCESS_INTERVAL = 0.001  # Process data every 2 seconds
+
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
         self.packet_count = 0
-        self.packet_buffer = []
-        self.last_process_time = 0
-        
+
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
         print("\n[WebSocket] New connection established")
-        print(f"[WebSocket] Active connections: {len(self.active_connections)}")
+        print(
+            f"[WebSocket] Active connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
         print("\n[WebSocket] Connection closed")
         print(f"[WebSocket] Total packets processed: {self.packet_count}")
-        print(f"[WebSocket] Remaining connections: {len(self.active_connections)}")
+        print(
+            f"[WebSocket] Remaining connections: {len(self.active_connections)}")
 
-    # async def broadcast(self, message: dict):
-    #     """Send message to all connected clients"""
-    #     for connection in self.active_connections:
-    #         await connection.send_json(message)
-    
-    async def buffer_and_process(self, data: Dict[str, Any]):
-        """Buffer incoming data and process in batches"""
-        self.packet_count += 1
-        self.packet_buffer.append(data)
-        
-        # Process when buffer reaches batch size or when interval elapsed
-        current_time = asyncio.get_event_loop().time()
-        should_process = (
-            len(self.packet_buffer) >= BATCH_SIZE or 
-            (current_time - self.last_process_time) >= PROCESS_INTERVAL and self.packet_buffer
-        )
-        
-        if should_process:
-            await self.process_batch()
-            self.last_process_time = current_time
+    async def broadcast(self, message: dict):
+        """Send message to all connected clients"""
+        for connection in self.active_connections:
+            await connection.send_json(message)
 
-    async def process_batch(self):
-        """Process a batch of packets and run inference"""
-        if not self.packet_buffer:
-            return
-        
+    async def process_packet(self, data: Dict[str, Any]):
+        """Process a single packet and run inference"""
         try:
-            # Prepare data for inference
-            batch_data = {"data": self.packet_buffer.copy()}
-            
-            # Run inference
-            results = model_predict(batch_data["data"])
+            # Keep original data for broadcast
+            original_data = data.copy()
 
-            print(results)
-            
-            # Send results to all connected clients
-            # message = {
-            #     "type": "prediction_results",
-            #     "data": results,
-            #     "packet_count": len(results)
-            # }
-            # await self.broadcast(message)
-            
-            # Log results (optional)
-            alerts = [r for r in results if r["predicted_class"] != "normal"]
-            if alerts:
-                print(f"\n[ALERT] Detected {len(alerts)} potential intrusions")
-                
-            # Clear the buffer
-            self.packet_buffer = []
-            
+            # Remove fields not needed for inference
+            inference_data = data.copy()
+            inference_data.pop('timestamp', None)
+            inference_data.pop('rawBytes', None)
+
+            # Run inference on single packet
+            # Pass as list since model expects array
+            result = model_predict([inference_data])[0]
+
+            # Create and broadcast payload
+            payload = create_broadcast_payload(original_data, result)
+            # await self.broadcast({
+            #     "type": "prediction_result",
+            #     "data": payload
+            # })
+            print(payload)
+            await self.broadcast(payload)
+
+            # Log alert if detected
+            if result["predicted_class"] != "normal":
+                print(
+                    f"\n[ALERT] Potential intrusion detected at timestamp {original_data['timestamp']}")
+                print(f"Details: {result}")
+
+            self.packet_count += 1
+
         except Exception as e:
-            error_msg = f"Error processing batch: {str(e)}"
-            print(f"\n[WebSocket] {error_msg}")
-            await self.broadcast({"type": "error", "message": error_msg})
-            # Clear buffer on error to avoid getting stuck
-            self.packet_buffer = []
-        
+            error_msg = f"Error processing packet: {str(e)}"
+            # print(f"\n[WebSocket] {error_msg}")
+            # await self.broadcast({"type": "error", "message": error_msg})
+
 
 manager = ConnectionManager()
+
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -102,9 +88,9 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_json()
-            # Process network packet data
-            await manager.buffer_and_process(data)
-            
+            # Process each packet individually
+            await manager.process_packet(data)
+
     except Exception as e:
         print(f"\n[WebSocket] Error: {e}")
     finally:
