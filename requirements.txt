@@ -12,3 +12,4 @@ pandas
 # Machine Learning
 scikit-learn
 tensorflow
+scapy
