@@ -6,4 +6,4 @@ services:
       - ./app:/code/app # Mount the current directory to the container
       - ./trained_models:/code/trained_models
     ports:
-      - 8008:8008 
+      - 8888:8888 

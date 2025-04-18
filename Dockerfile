@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./app /code/app
 COPY ./trained_models /code/trained_models
 
-EXPOSE 8008
+EXPOSE 8888
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8888"]
 # CMD ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8008"]
