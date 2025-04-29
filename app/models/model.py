@@ -6,14 +6,14 @@ import joblib
 from app.preprocessing.preprocessing import preprocess_data
 
 # Multi-Class
-model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/100425/model.h5')
-label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/100425/label_encoder.pkl')
+model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/2904/model.h5')
+label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/2904/label_encoder.pkl')
 model = tf.keras.models.load_model(model_path)
 label_encoder = joblib.load(label_encoder_path) 
 
 # Binary-Class
-# model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/binary77/model.h5')
-# label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/binary77/label_encoder.pkl')
+# model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/binary1704/model.h5')
+# label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/binary1704/label_encoder.pkl')
 # model = tf.keras.models.load_model(model_path)
 # label_encoder = joblib.load(label_encoder_path) 
 
