@@ -30,7 +30,7 @@ class ConnectionManager:
         self.high_sev_count = 0
         self.in_size = 0
         self.out_size = 0
-        self.ip = "172.10.16.238"
+        self.ip = "194.233.72.57"
         self.protocol_distribution: Dict[str, int] = {}
         self.service_distribution: Dict[str, int] = {}
         self.packet_data: List[Dict[str, Any]] = []
