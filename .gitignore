@@ -12,3 +12,6 @@ __pycache__/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Trained Models
+trained_models/random
