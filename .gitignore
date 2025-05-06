@@ -14,4 +14,4 @@ __pycache__/
 *.egg
 
 # Trained Models
-trained_models/random
+trained_models/notused
