@@ -21,12 +21,9 @@ SELECTED_FEATURES = [
 ]
 
 # Multi-Class
-preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/2904/preprocessor.joblib')
+preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/2904/preprocessor.joblib')
 preprocessor = joblib.load(preprocessor_path)
 
-# Binary-Class
-# preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/binary1704/preprocessor.joblib')
-# preprocessor = joblib.load(preprocessor_path)
 
 def preprocess_data(data_list):
     """Process a batch of network feature dictionaries"""
