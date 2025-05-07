@@ -30,9 +30,14 @@ class ConnectionManager:
         self.high_sev_count = 0
         self.in_size = 0
         self.out_size = 0
-        self.ip = "194.233.72.57"
+        self.ip = "10.200.8.158"
         self.protocol_distribution: Dict[str, int] = {}
         self.service_distribution: Dict[str, int] = {}
+        self.top_talkers: Dict[str, int] = {}
+        self.top_ports: Dict[int, int] = {}
+        self.top_attacked_ports: Dict[int, int] = {}
+        self.top_attackers: Dict[str, int] = {}
+        self.attack_type_distribution: Dict[str, int] = {}
         self.packet_data: List[Dict[str, Any]] = []
         self.alert_data: List[Dict[str, Any]] = []
 
@@ -72,6 +77,11 @@ class ConnectionManager:
                 outbound = self.out_size
                 alerts_data = self.alert_data.copy()
                 packets_data = self.packet_data.copy()
+                top_talk = dict(sorted(self.top_talkers.items(), key=lambda item: item[1], reverse=True))
+                top_ports = dict(sorted(self.top_ports.items(), key=lambda item: item[1], reverse=True))
+                top_attacked_ports = dict(sorted(self.top_attacked_ports.items(), key=lambda item: item[1], reverse=True))
+                top_attackers = dict(sorted(self.top_attackers.items(), key=lambda item: item[1], reverse=True))
+                attack_dist = self.attack_type_distribution.copy()
 
                 self.low_sev_count = 0
                 self.med_sev_count = 0
@@ -83,6 +93,11 @@ class ConnectionManager:
                 self.out_size = 0
                 self.alert_data.clear()
                 self.packet_data.clear()
+                self.top_talkers.clear()
+                self.top_ports.clear()
+                self.top_attacked_ports.clear()
+                self.top_attackers.clear()
+                self.attack_type_distribution.clear()
                 
                 
                 # Broadcast all messages
@@ -98,6 +113,11 @@ class ConnectionManager:
                             "high_count": total_high,
                             "protocols_count": protocols_counts,
                             "services_count": services_counts,
+                            "top_talkers": top_talk,
+                            "top_ports": top_ports,
+                            "top_attacked_ports": top_attacked_ports,
+                            "top_attackers": top_attackers,
+                            "attack_type_count": attack_dist,
                             "alerts_data": alerts_data,
                             "packets_data": packets_data
                         })
@@ -124,6 +144,23 @@ class ConnectionManager:
         self.service_distribution[message["service"]] = \
             self.service_distribution.get(message["service"], 0) + 1
         
+        if message["ipdst"] == self.ip:
+            self.top_talkers[message["ipsrc"]] = \
+                self.top_talkers.get(message["ipsrc"], 0) + 1
+            
+            self.top_ports[message["dport"]] = \
+                self.top_ports.get(message["dport"], 0) + 1
+            
+            if message["predicted_class"] != "normal":
+                self.top_attacked_ports[message["dport"]] = \
+                    self.top_attacked_ports.get(message["dport"], 0) + 1
+                
+                self.top_attackers[message["ipsrc"]] = \
+                    self.top_attackers.get(message["ipsrc"], 0) + 1
+                
+                self.attack_type_distribution[message["predicted_class"]] = \
+                    self.attack_type_distribution.get(message["predicted_class"], 0) + 1
+
         self.packet_data.append({
             "formatted_timestamp" : message["formatted_timestamp"],
             "ipsrc": message["ipsrc"],
