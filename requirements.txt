@@ -13,3 +13,5 @@ pandas
 scikit-learn
 tensorflow
 scapy
+
+aio-pika
