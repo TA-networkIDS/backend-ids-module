@@ -146,7 +146,7 @@ class ConnectionManager:
         
         if message["ipdst"] == self.ip:
             self.top_talkers[message["ipsrc"]] = \
-                self.top_talkers.get(message["ipsrc"], 0) + 1
+                self.top_talkers.get(message["ipsrc"], 0) + message["len"]
             
             self.top_ports[message["dport"]] = \
                 self.top_ports.get(message["dport"], 0) + 1
@@ -178,6 +178,7 @@ class ConnectionManager:
 
         self.alert_data.append({
             "ipsrc": message["ipsrc"],
+            "dport": message["dport"],
             "formatted_timestamp": message["formatted_timestamp"],
             "predicted_class": message["predicted_class"],
             "confidence": message["confidence"]
