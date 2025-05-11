@@ -21,7 +21,7 @@ PREDEFINED_SERVICES = {
 # ]
 
 # Multi-Class
-preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/0605/preprocessor.joblib')
+preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/0705/preprocessor.joblib')
 preprocessor = joblib.load(preprocessor_path)
 
 
