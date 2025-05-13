@@ -4,10 +4,8 @@ import joblib
 import os
 
 PREDEFINED_SERVICES = {
-    'smtp', 'uucp', 'ftp', 'http', 'iso_tsap', 'vmnet', 'private', 'nnsp',
-    'urp_i', 'whois', 'domain_u', 'domain', 'auth', 'bgp', 'uucp_path',
-    'telnet', 'other', 'time', 'Z39_50', 'finger', 'eco_i', 'ecr_i',
-    'courier', 'ftp_data', 'imap4'
+    'ssh', 'http', 'smtp', 'domain', 'telnet', 'https', 'ftp',
+       'ftp_data', 'imap', 'pop3'
 }
 
 # Based on first reference paper
@@ -21,7 +19,7 @@ PREDEFINED_SERVICES = {
 # ]
 
 # Multi-Class
-preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/0705/preprocessor.joblib')
+preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/1305/preprocessor.joblib')
 preprocessor = joblib.load(preprocessor_path)
 
 
