@@ -35,7 +35,7 @@ logging_config = {
 }
 logging.config.dictConfig(logging_config)
 logger = logging.getLogger('myapp')
-
+#  mongodb://root:example@mongo:27017/
 
 def start_background_loop(loop: asyncio.AbstractEventLoop) -> None:
     # inspired from https://gist.github.com/dmfigol/3e7d5b84a16d076df02baa9f53271058

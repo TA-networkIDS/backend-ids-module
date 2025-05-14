@@ -1,8 +1,9 @@
 import logging
 import aio_pika
 import asyncio
-
-
+import json
+from app.models.model import predict as model_predict
+from app.preprocessing.payload import create_broadcast_payload
 logger = logging.getLogger("myapp")
 
 
@@ -56,8 +57,17 @@ class PikaClient:
 
         # TODO: pass to model and broadcast
         # await asyncio.sleep(3)
+        # print(json.loads(message.body))
         self.packet_counter += 1
-        logger.info("total packets recieved: %s" % self.packet_counter)
+        # logger.info("total packets recieved: %s" % self.packet_counter)
+
+        packet = json.loads(message.body)
+        prediction_result = model_predict([packet])[0]
+        print(prediction_result)
+
+
+
+
 
         # manual ack mechanism to tell broker that the message has been processed properly
         await message.ack()
