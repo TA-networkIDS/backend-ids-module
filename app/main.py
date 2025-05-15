@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from app.api.routes import routes
-from app.api.websockets import websocket
+from app.api.websockets import ws
 from app.rmq import PikaClient
 import threading
 import asyncio
@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Detection Engine Module", debug=True, lifespan=lifespan)
 
 app.include_router(routes.router)
-app.include_router(websocket.router)
+app.include_router(ws.router)
 
 
 @app.get("/")

@@ -1,38 +1,51 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import List, Dict, Any, Optional
-import asyncio
+from typing import List
+import json
+import logging
 
 router = APIRouter()
+logger = logging.getLogger("websocket")
+
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
+        """
+        Connect a new WebSocket connection
+        """
         await websocket.accept()
         self.active_connections.append(websocket)
+        logger.info(f"New WebSocket connection. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
+        """
+        Disconnect a WebSocket connection
+        """
         self.active_connections.remove(websocket)
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
+        logger.info(f"WebSocket disconnected. Remaining connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: str):
+        """
+        Broadcast a message to all connections
+        """
         for connection in self.active_connections:
-            await connection.send_text(message)
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.error(f"Error broadcasting message: {e}")
 
-
-manager = ConnectionManager()
-
-
-@router.websocket("/ws_new")
-async def websocket_endpoint(websocket: WebSocket, client_id: int):
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for IDS alerts and updates
+    """
     await manager.connect(websocket)
     try:
         while True:
-            data = await websocket.receive_text()
-            await manager.send_personal_message(f"You wrote: {data}", websocket)
-            await manager.broadcast(f"Client #{client_id} says: {data}")
+            # Keep connection open, but don't expect client to send messages
+            await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        await manager.broadcast(f"Client #{client_id} left the chat")
+
+manager = ConnectionManager()

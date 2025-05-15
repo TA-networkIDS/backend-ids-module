@@ -15,3 +15,4 @@ tensorflow
 scapy
 
 aio-pika
+motor

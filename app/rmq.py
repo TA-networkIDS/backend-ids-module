@@ -3,12 +3,13 @@ import aio_pika
 import asyncio
 import json
 from app.models.model import predict as model_predict
-from app.preprocessing.payload import create_broadcast_payload
+from app.api.websockets.ws import manager as ws_manager
+from app.network_statistics import network_stats_service
+
 logger = logging.getLogger("myapp")
 
 
 class PikaClient:
-
     def __init__(self, queue_name: str, host: str, port: int, user: str, password: str):
         self.queue_name = queue_name
         self.host = host
@@ -19,63 +20,88 @@ class PikaClient:
         self.connection: aio_pika.RobustConnection = None
         self.channel: aio_pika.abc.AbstractChannel = None
         self.queue = None
-        self.packet_counter = 0
 
     async def start_connection(self):
         try:
-            logger.info("Starting a new connection")
-            self.connection = await aio_pika.connect_robust(host=self.host, port=self.port, login=self.user, password=self.password)
+            logger.info("Starting RabbitMQ connection")
+            self.connection = await aio_pika.connect_robust(
+                host=self.host,
+                port=self.port,
+                login=self.user,
+                password=self.password
+            )
 
-            logger.info("Opening channel")
             self.channel = await self.connection.channel()
-
             await self.setup_queue()
         except Exception as e:
-            logger.error(e)
+            logger.error(f"RabbitMQ connection error: {e}")
 
     async def setup_queue(self):
-        logger.info("Setup a queue: %s" % self.queue_name)
+        logger.info(f"Setting up queue: {self.queue_name}")
         self.queue = await self.channel.declare_queue(name=self.queue_name, durable=True)
 
     async def start_consumer(self):
         await self.start_connection()
-
         await self.channel.set_qos(prefetch_count=1)
 
-        logger.info("Starting consumer")
+        logger.info("Starting RabbitMQ consumer")
         try:
-            await self.queue.consume(self.handle_message, no_ack=False)
-        except Exception as _e:
-            print(_e)
-            logger.error(_e)
-        print("here")
-        logger.info("Consumer has been started")
+            # await self.queue.consume(self.handle_message, no_ack=False)
+            await self.queue.consume(self.handle_message, no_ack=True)
+        except Exception as e:
+            logger.error(f"Consumer start error: {e}")
+
         return self
 
     async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage):
-        """Handle incoming message"""
+        """Handle incoming packet message"""
+        try:
+            # Parse packet
+            packet = json.loads(message.body)
+            # print(packet)
+            additional_data = packet["additional_data"]
 
-        # TODO: pass to model and broadcast
-        # await asyncio.sleep(3)
-        # print(json.loads(message.body))
-        self.packet_counter += 1
-        # logger.info("total packets recieved: %s" % self.packet_counter)
+            # Determine if packet is inbound or outbound
+            if additional_data["ipdst"] == "10.237.25.86":
+                # Inbound packet: run normal inference
+                prediction_result = model_predict([packet])[0]
+            else:
+                # Outbound packet: set prediction to normal with 0 confidence
+                prediction_result = {
+                    "predicted_class": "normal",
+                    "confidence": 0.0
+                }
 
-        packet = json.loads(message.body)
-        prediction_result = model_predict([packet])[0]
-        print(prediction_result)
+            # Combine additional data with prediction result
+            result_data = {
+                **additional_data,
+                **prediction_result
+            }
 
+            # Update network statistics via service
+            network_stats_service.update_statistics(result_data)
 
+            # Broadcast only non-normal packets via WebSocket
+            if prediction_result['predicted_class'] != 'normal':
+                # Prepare alert payload
+                alert_payload = json.dumps(result_data)
 
+                # Broadcast to WebSocket clients
+                await ws_manager.broadcast(alert_payload)
 
+                print(
+                    f"[ALERT] Potential intrusion: {prediction_result['predicted_class']}")
 
-        # manual ack mechanism to tell broker that the message has been processed properly
-        await message.ack()
+            # Manual acknowledgement
+            # await message.ack()
 
+        except Exception as e:
+            logger.error(f"Message handling error: {e}")
+            await message.nack(requeue=True)
 
     async def disconnect(self):
         try:
-            if not self.connection.is_closed:
+            if self.connection and not self.connection.is_closed:
                 await self.connection.close()
-        except Exception as _e:
-            logger.error(_e)
+        except Exception as e:
+            logger.error(f"Disconnection error: {e}")
