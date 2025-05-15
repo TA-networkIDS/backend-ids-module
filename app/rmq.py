@@ -5,6 +5,9 @@ import json
 from app.models.model import predict as model_predict
 from app.api.websockets.ws import manager as ws_manager
 from app.network_statistics import network_stats_service
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 logger = logging.getLogger("myapp")
 
@@ -60,9 +63,10 @@ class PikaClient:
             packet = json.loads(message.body)
             # print(packet)
             additional_data = packet["additional_data"]
+            host_ip = os.getenv("HOST_IP_ADDRESS", "194.233.72.57")
 
             # Determine if packet is inbound or outbound
-            if additional_data["ipdst"] == "10.237.25.86":
+            if additional_data["ipdst"] == host_ip:
                 # Inbound packet: run normal inference
                 prediction_result = model_predict([packet])[0]
             else:
