@@ -16,3 +16,4 @@ scapy
 
 aio-pika
 motor
+python-dotenv

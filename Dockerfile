@@ -18,16 +18,18 @@ RUN apt-get update -y && apt-get install -y \
 
 # RUN export JAVA_HOME
 
+COPY . /code/
+
 # Copy the requirements file into the container
-COPY ./requirements.txt /code/requirements.txt
+# COPY ./requirements.txt /code/requirements.txt
 
 # Install Python dependencies
 RUN pip install --upgrade -r /code/requirements.txt
 # RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # Copy the application code into the container
-COPY ./app /code/app
-COPY ./trained_models /code/trained_models
+# COPY ./app /code/app
+# COPY ./trained_models /code/trained_models
 
 ENV PYTHONPATH=/code
 

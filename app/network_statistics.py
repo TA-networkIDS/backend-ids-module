@@ -1,5 +1,8 @@
 from typing import Dict, Any, List
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class NetworkStatistics:
@@ -25,7 +28,7 @@ class NetworkStatistics:
         self.high_sev_count = 0
         self.in_size = 0
         self.out_size = 0
-        self.ip = "10.237.25.86"  # Default IP to track inbound/outbound
+        self.ip = os.getenv("HOST_IP_ADDRESS", "194.233.72.57")
 
         # Distribution tracking
         self.protocol_distribution: Dict[str, int] = {}
