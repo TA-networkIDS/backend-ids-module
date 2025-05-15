@@ -13,3 +13,7 @@ pandas
 scikit-learn
 tensorflow
 scapy
+
+aio-pika
+motor
+python-dotenv
