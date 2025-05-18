@@ -44,6 +44,9 @@ class NetworkStatistics:
         # Storage for non-normal packets (for MongoDB)
         self.non_normal_packets: List[Dict[str, Any]] = []
 
+        # Storage for all packets
+        self.all_packets: List[Dict[str, Any]] = []
+
     def __init__(self):
         """Ensure initialization for new instances"""
         if not hasattr(self, 'packet_counter'):
@@ -107,6 +110,9 @@ class NetworkStatistics:
         if result_data["predicted_class"] != "normal":
             self.non_normal_packets.append(result_data)
 
+        # Store all packets
+        self.all_packets.append(result_data)
+
     def get_statistics(self) -> Dict[str, Any]:
         """
         Retrieve current network statistics
@@ -150,6 +156,16 @@ class NetworkStatistics:
         """
         packets = self.non_normal_packets.copy()
         self.non_normal_packets.clear()
+        return packets
+    
+    def get_all_packets(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all packets
+
+        :return: List of all packets
+        """
+        packets = self.all_packets.copy()
+        self.all_packets.clear()
         return packets
 
     def _reset_transient_stats(self):
