@@ -18,13 +18,13 @@ SELECTED_FEATURES = [
 ]
 
 # Multi-Class
-preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/1505_26/preprocessor.joblib')
+preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/1905_full/preprocessor.joblib')
 preprocessor = joblib.load(preprocessor_path)
 
 
 def preprocess_data(data_list):
     """Process a batch of network feature dictionaries"""
-    df = pd.DataFrame(data_list)[SELECTED_FEATURES]
+    df = pd.DataFrame(data_list)
     
     df['service'] = df['service'].apply(
         lambda x: x if x in PREDEFINED_SERVICES else 'other'

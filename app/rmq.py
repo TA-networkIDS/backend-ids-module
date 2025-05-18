@@ -87,7 +87,6 @@ class PikaClient:
 
             # Broadcast only non-normal packets via WebSocket
             if prediction_result['predicted_class'] != 'normal':
-
                 # Broadcast to WebSocket clients
                 await ws_manager.broadcast(result_data)
 
