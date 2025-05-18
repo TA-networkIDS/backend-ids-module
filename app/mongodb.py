@@ -49,6 +49,15 @@ class MongoDBClient:
         result = await self.non_normal_packets_collection.insert_one(packet.copy())
         return result
 
+    async def batch_insert_non_normal_packets(self, packets: List[Dict[str, Any]]):
+        """
+        Insert non-normal packets into MongoDB in batch
+
+        :param packets: non-normal packet dictionaries
+        :return: Result of the insert operation
+        """
+        result = await self.non_normal_packets_collection.insert_many(packets.copy())
+        return result
 
     async def update_network_statistics(self, statistics: Dict[str, Any]):
         """
@@ -128,7 +137,6 @@ class MongoDBClient:
             
             # Calculate the timestamp from X minutes ago (in seconds)
             delta_time_seconds = current_time - (minutes * 60)
-            logger.warning(f"Delta time: {delta_time_seconds}")
 
             # Query non-normal packets within the time range
             cursor = self.non_normal_packets_collection.find({
