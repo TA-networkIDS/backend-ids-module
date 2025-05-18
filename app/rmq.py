@@ -85,6 +85,14 @@ class PikaClient:
             # Update network statistics via service
             network_stats_service.update_statistics(result_data)
 
+            # Broadcast for all traffic but ignore outbound packet
+            if prediction_result['confidence'] != 0.0:
+                # Prepare alert payload
+                alert_payload_all = json.dumps(result_data)
+
+                # Broadcast to WebSocket clients
+                await ws_manager.broadcast_all(alert_payload_all)
+
             # Broadcast only non-normal packets via WebSocket
             if prediction_result['predicted_class'] != 'normal':
                 # Prepare alert payload
