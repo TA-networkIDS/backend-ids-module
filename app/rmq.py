@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict
 import aio_pika
 import asyncio
 import json
@@ -59,9 +60,8 @@ class PikaClient:
     async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage):
         """Handle incoming packet message"""
         try:
-            # Parse packet
+            # Parse packet, 
             packet = json.loads(message.body)
-            # print(packet)
             additional_data = packet["additional_data"]
             host_ip = os.getenv("HOST_IP_ADDRESS", "194.233.72.57")
 
@@ -83,14 +83,14 @@ class PikaClient:
             }
 
             # Update network statistics via service
-            network_stats_service.update_statistics(result_data)
+            await network_stats_service.update_statistics(result_data)
 
             # Broadcast only non-normal packets via WebSocket
             if prediction_result['predicted_class'] != 'normal':
                 # Broadcast to WebSocket clients
                 await ws_manager.broadcast(result_data)
 
-                print(
+                logger.warning(
                     f"[ALERT] Potential intrusion: {prediction_result['predicted_class']}")
 
             # Manual acknowledgement
