@@ -41,8 +41,8 @@ class NetworkStatistics:
 
         # Top statistics tracking
         self.top_talkers: Dict[str, int] = {}
-        self.top_ports: Dict[int, int] = {}
-        self.top_attacked_ports: Dict[int, int] = {}
+        self.top_ports: Dict[str, int] = {}
+        self.top_attacked_ports: Dict[str, int] = {}
         self.top_attackers: Dict[str, int] = {}
 
         # Storage for non-normal packets (for MongoDB)
@@ -64,7 +64,7 @@ class NetworkStatistics:
         :param result_data: Packet data with prediction results
         """
         self.packet_counter += 1
-        
+
         # Severity count tracking
         if result_data["predicted_class"] == "Probe":
             self.low_sev_count += 1
@@ -95,14 +95,14 @@ class NetworkStatistics:
                     result_data["ipsrc"], 0) + result_data["len"]
 
             # Top ports
-            self.top_ports[result_data["dport"]] = \
-                self.top_ports.get(result_data["dport"], 0) + 1
+            self.top_ports[str(result_data["dport"])] = \
+                self.top_ports.get(str(result_data["dport"]), 0) + 1
 
             # Attack-specific tracking
             if result_data["predicted_class"] != "normal":
-                self.top_attacked_ports[result_data["dport"]] = \
+                self.top_attacked_ports[str(result_data["dport"])] = \
                     self.top_attacked_ports.get(
-                        result_data["dport"], 0) + 1
+                        str(result_data["dport"]), 0) + 1
 
                 self.top_attackers[result_data["ipsrc"]] = \
                     self.top_attackers.get(result_data["ipsrc"], 0) + 1
@@ -113,24 +113,34 @@ class NetworkStatistics:
 
                 # Immediately save non-normal packet to MongoDB
                 try:
-                    await self.mongodb.insert_non_normal_packets([result_data])
-                    logger.info(f"Saved non-normal packet of type {result_data['predicted_class']}")
+                    await self.mongodb.insert_non_normal_packets(result_data)
+                    logger.info(
+                        f"Saved non-normal packet of type {result_data['predicted_class']}")
                 except Exception as e:
                     logger.error(f"Failed to save non-normal packet: {e}")
 
-        # Store all packets
-        self.all_packets.append(result_data)
+        # Store packet in memory
+        self._store_all_packets(result_data)
 
-        # Save statistics every 100 packets
-        if self.packet_counter >= 100:
+        # Save statistics to db every 75 packets
+        if self.packet_counter >= 75:
             try:
                 stats = self.get_statistics()
                 await self.mongodb.update_network_statistics(stats)
-                logger.info("Saved network statistics to MongoDB")
                 self._reset_transient_stats()
                 self.packet_counter = 0
             except Exception as e:
                 logger.error(f"Failed to save network statistics: {e}")
+
+    def _store_all_packets(self, packet: Dict[str, Any]):
+        """
+        Stroing all packets in memory with a certain packet limit.
+        If the limit is reached, the oldest packet is removed.
+        """
+        MAX_IN_MEMORY_PACKETS = 1000
+        self.all_packets.append(packet)
+        if len(self.all_packets) > MAX_IN_MEMORY_PACKETS:
+            self.all_packets.pop(0)
 
     def get_statistics(self) -> Dict[str, Any]:
         """
@@ -138,19 +148,9 @@ class NetworkStatistics:
 
         :return: Dictionary of network statistics
         """
-        # Prepare sorted and limited top statistics
-        top_talk = dict(sorted(self.top_talkers.items(),
-                        key=lambda item: item[1], reverse=True)[:10])
-        top_ports = dict(sorted(self.top_ports.items(),
-                         key=lambda item: item[1], reverse=True)[:10])
-        top_attacked_ports = dict(sorted(
-            self.top_attacked_ports.items(), key=lambda item: item[1], reverse=True)[:10])
-        top_attackers = dict(sorted(self.top_attackers.items(
-        ), key=lambda item: item[1], reverse=True)[:10])
 
         # Prepare the statistics dictionary
         stats = {
-            "type": "batch_update",
             "pkt_in": self.in_size,
             "pkt_out": self.out_size,
             "low_count": self.low_sev_count,
@@ -158,10 +158,10 @@ class NetworkStatistics:
             "high_count": self.high_sev_count,
             "protocols_count": self.protocol_distribution,
             "services_count": self.service_distribution,
-            "top_talkers": top_talk,
-            "top_ports": top_ports,
-            "top_attacked_ports": top_attacked_ports,
-            "top_attackers": top_attackers,
+            "top_talkers": self.top_talkers,
+            "top_ports": self.top_ports,
+            "top_attacked_ports": self.top_attacked_ports,
+            "top_attackers": self.top_attackers,
             "attack_type_count": self.attack_type_distribution,
         }
 
@@ -176,7 +176,7 @@ class NetworkStatistics:
         packets = self.non_normal_packets.copy()
         self.non_normal_packets.clear()
         return packets
-    
+
     def get_all_packets(self) -> List[Dict[str, Any]]:
         """
         Retrieve all packets
@@ -203,12 +203,6 @@ class NetworkStatistics:
         self.top_ports.clear()
         self.top_attacked_ports.clear()
         self.top_attackers.clear()
-
-    def reset_statistics(self):
-        """
-        Reset all network statistics
-        """
-        self._initialize()
 
 
 # Global service instance

@@ -87,11 +87,9 @@ class PikaClient:
 
             # Broadcast only non-normal packets via WebSocket
             if prediction_result['predicted_class'] != 'normal':
-                # Prepare alert payload
-                alert_payload = json.dumps(result_data)
 
                 # Broadcast to WebSocket clients
-                await ws_manager.broadcast(alert_payload)
+                await ws_manager.broadcast(result_data)
 
                 logger.warning(
                     f"[ALERT] Potential intrusion: {prediction_result['predicted_class']}")
@@ -102,12 +100,6 @@ class PikaClient:
         except Exception as e:
             logger.error(f"Message handling error: {e}")
             await message.nack(requeue=True)
-
-    async def _process_packet(self, result_data: Dict[str, Any]):
-        """
-        Method to update network statistic stuff and
-        """
-        pass
 
     async def disconnect(self):
         try:
