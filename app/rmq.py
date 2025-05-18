@@ -5,6 +5,7 @@ import json
 from app.models.model import predict as model_predict
 from app.api.websockets.ws import manager as ws_manager
 from app.network_statistics import network_stats_service
+# No longer directly importing mongodb_client
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -49,8 +50,8 @@ class PikaClient:
 
         logger.info("Starting RabbitMQ consumer")
         try:
-            # await self.queue.consume(self.handle_message, no_ack=False)
-            await self.queue.consume(self.handle_message, no_ack=True)
+            await self.queue.consume(self.handle_message, no_ack=False)
+            # await self.queue.consume(self.handle_message, no_ack=True)
         except Exception as e:
             logger.error(f"Consumer start error: {e}")
 
@@ -61,7 +62,6 @@ class PikaClient:
         try:
             # Parse packet
             packet = json.loads(message.body)
-            # print(packet)
             additional_data = packet["additional_data"]
             host_ip = os.getenv("HOST_IP_ADDRESS", "194.233.72.57")
 
@@ -82,26 +82,52 @@ class PikaClient:
                 **prediction_result
             }
 
-            # Update network statistics via service
-            network_stats_service.update_statistics(result_data)
+            # Non-blocking network statistics update and MongoDB insertion
+            asyncio.create_task(self._process_packet(result_data))
 
             # Broadcast only non-normal packets via WebSocket
             if prediction_result['predicted_class'] != 'normal':
                 # Prepare alert payload
                 alert_payload = json.dumps(result_data)
 
-                # Broadcast to WebSocket clients
-                await ws_manager.broadcast(alert_payload)
+                # Non-blocking WebSocket broadcast
+                asyncio.create_task(ws_manager.broadcast(alert_payload))
 
                 print(
                     f"[ALERT] Potential intrusion: {prediction_result['predicted_class']}")
 
-            # Manual acknowledgement
-            # await message.ack()
+            await message.ack()
+            # asyncio.create_task(message.ack())
 
         except Exception as e:
             logger.error(f"Message handling error: {e}")
             await message.nack(requeue=True)
+
+    async def _process_packet(self, result_data):
+        """
+        Non-blocking method to update network statistics and store non-normal packets
+        """
+        try:
+            # Update network statistics
+            network_stats_service.update_statistics(result_data)
+            
+            # Store non-normal packets in NetworkStatistics (not directly in MongoDB)
+            if result_data['predicted_class'] != 'normal':
+                network_stats_service.store_non_normal_packet(result_data)
+            
+            # Increment packet counter
+            network_stats_service.packet_counter += 1
+            
+            # Save data to MongoDB every 100 packets
+            if network_stats_service.packet_counter % 100 == 0:
+                try:
+                    # Create a task in the current event loop
+                    asyncio.create_task(network_stats_service.save_data_to_mongodb())
+                    logger.debug(f"Triggered data save after {network_stats_service.packet_counter} packets")
+                except Exception as e:
+                    logger.error(f"Error triggering data save: {e}")
+        except Exception as e:
+            logger.error(f"Packet processing error: {e}")
 
     async def disconnect(self):
         try:

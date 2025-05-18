@@ -15,5 +15,5 @@ tensorflow
 scapy
 
 aio-pika
-motor
+pymongo
 python-dotenv

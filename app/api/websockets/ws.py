@@ -4,7 +4,7 @@ import json
 import logging
 
 router = APIRouter()
-logger = logging.getLogger("websocket")
+logger = logging.getLogger("myapp")
 
 class ConnectionManager:
     def __init__(self):

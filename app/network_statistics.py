@@ -1,7 +1,13 @@
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import asyncio
 from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
+import logging
+from app.mongodb import mongodb_client
+
+logger = logging.getLogger("myapp")
 load_dotenv()
 
 
@@ -9,6 +15,7 @@ class NetworkStatistics:
     """
     A service to manage network statistics across the application
     Provides a centralized way to update and retrieve network statistics
+    Acts as a bridge between RabbitMQ and MongoDB
     """
     _instance = None
 
@@ -37,12 +44,15 @@ class NetworkStatistics:
 
         # Top statistics tracking
         self.top_talkers: Dict[str, int] = {}
-        self.top_ports: Dict[int, int] = {}
-        self.top_attacked_ports: Dict[int, int] = {}
+        self.top_ports: Dict[str, int] = {}
+        self.top_attacked_ports: Dict[str, int] = {}
         self.top_attackers: Dict[str, int] = {}
 
         # Storage for non-normal packets (for MongoDB)
         self.non_normal_packets: List[Dict[str, Any]] = []
+        
+        # Last time statistics were saved to MongoDB
+        self.last_save_time = datetime.now()
 
     def __init__(self):
         """Ensure initialization for new instances"""
@@ -51,12 +61,10 @@ class NetworkStatistics:
 
     def update_statistics(self, result_data: Dict[str, Any]):
         """
-        Update network statistics and store non-normal packets
+        Update network statistics
 
-        :param additional_data: Additional packet details dictionary
-        :param prediction: Prediction result dictionary
+        :param result_data: Packet result data dictionary
         """
-        # print(result_data)
         # Severity count tracking
         if result_data["predicted_class"] == "Probe":
             self.low_sev_count += 1
@@ -87,14 +95,14 @@ class NetworkStatistics:
                     result_data["ipsrc"], 0) + result_data["len"]
 
             # Top ports
-            self.top_ports[result_data["dport"]] = \
-                self.top_ports.get(result_data["dport"], 0) + 1
+            self.top_ports[str(result_data["dport"])] = \
+                self.top_ports.get(str(result_data["dport"]), 0) + 1
 
             # Attack-specific tracking
             if result_data["predicted_class"] != "normal":
-                self.top_attacked_ports[result_data["dport"]] = \
+                self.top_attacked_ports[str(result_data["dport"])] = \
                     self.top_attacked_ports.get(
-                        result_data["dport"], 0) + 1
+                        str(result_data["dport"]), 0) + 1
 
                 self.top_attackers[result_data["ipsrc"]] = \
                     self.top_attackers.get(result_data["ipsrc"], 0) + 1
@@ -103,9 +111,8 @@ class NetworkStatistics:
                     self.attack_type_distribution.get(
                         result_data["predicted_class"], 0) + 1
 
-        # Store non-normal packets for MongoDB
-        if result_data["predicted_class"] != "normal":
-            self.non_normal_packets.append(result_data)
+        # Note: We no longer store non-normal packets here
+        # They will be stored via store_non_normal_packet method
 
     def get_statistics(self) -> Dict[str, Any]:
         """
@@ -154,8 +161,9 @@ class NetworkStatistics:
 
     def _reset_transient_stats(self):
         """
-        Reset transient statistics after broadcasting
+        Reset transient statistics after saving to MongoDB
         """
+        self.packet_counter = 0  # Reset packet counter
         self.low_sev_count = 0
         self.med_sev_count = 0
         self.high_sev_count = 0
@@ -174,6 +182,43 @@ class NetworkStatistics:
         Reset all network statistics
         """
         self._initialize()
+        
+    def store_non_normal_packet(self, packet: Dict[str, Any]):
+        """
+        Store a non-normal packet for later batch insertion to MongoDB
+        
+        :param packet: Non-normal packet data
+        """
+        self.non_normal_packets.append(packet)
+        logger.debug(f"Stored non-normal packet of type {packet['predicted_class']} for later insertion")
+    
+    async def save_data_to_mongodb(self):
+        """
+        Save both statistics and non-normal packets to MongoDB
+        This method should be called from the main event loop
+        After saving, resets the in-memory statistics to prevent double-counting
+        """
+        try:
+            # Get current statistics and packets
+            stats = self.get_statistics()
+            packets = self.get_non_normal_packets()
+            
+            # Save statistics to MongoDB
+            await mongodb_client.update_network_statistics(stats)
+            
+            # Save non-normal packets if any
+            if packets:
+                await mongodb_client.insert_non_normal_packets(packets)
+            
+            # Update last save time
+            self.last_save_time = datetime.now()
+            
+            # Reset in-memory statistics after saving to prevent double-counting
+            self._reset_transient_stats()
+            
+            logger.info(f"Saved statistics and {len(packets)} non-normal packets to MongoDB, reset in-memory stats")
+        except Exception as e:
+            logger.error(f"Error saving data to MongoDB: {e}")
 
 
 # Global service instance
