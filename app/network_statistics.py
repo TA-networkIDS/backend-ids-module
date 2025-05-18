@@ -1,5 +1,4 @@
 from typing import Dict, Any, List
-from datetime import datetime
 import os
 import logging
 from app.mongodb import MongoDBClient
@@ -203,6 +202,83 @@ class NetworkStatistics:
         self.top_ports.clear()
         self.top_attacked_ports.clear()
         self.top_attackers.clear()
+
+    async def update_statistics_batch(self, results: List[Dict[str, Any]]):
+        """
+        Update network statistics and store non-normal packets
+
+        :param results: List Packet data with prediction results
+        """
+        for result_data in results:
+
+            self.packet_counter += 1
+
+            # Severity count tracking
+            if result_data["predicted_class"] == "Probe":
+                self.low_sev_count += 1
+            elif result_data["predicted_class"] == "Dos":
+                self.med_sev_count += 1
+            elif result_data["predicted_class"] in ["U2R", "R2L"]:
+                self.high_sev_count += 1
+
+            # Inbound/outbound size tracking
+            if result_data["ipsrc"] == self.ip:
+                self.in_size += result_data["len"]
+            elif result_data["ipdst"] == self.ip:
+                self.out_size += result_data["len"]
+
+            # Protocol and service distribution
+            self.protocol_distribution[result_data["protocol_type"]] = \
+                self.protocol_distribution.get(
+                    result_data["protocol_type"], 0) + 1
+
+            self.service_distribution[result_data["service"]] = \
+                self.service_distribution.get(result_data["service"], 0) + 1
+
+            # Top talkers, ports, and attackers tracking
+            if result_data["ipdst"] == self.ip:
+                # Top talkers by length
+                self.top_talkers[result_data["ipsrc"]] = \
+                    self.top_talkers.get(
+                        result_data["ipsrc"], 0) + result_data["len"]
+
+                # Top ports
+                self.top_ports[str(result_data["dport"])] = \
+                    self.top_ports.get(str(result_data["dport"]), 0) + 1
+
+                # Attack-specific tracking
+                if result_data["predicted_class"] != "normal":
+                    self.top_attacked_ports[str(result_data["dport"])] = \
+                        self.top_attacked_ports.get(
+                            str(result_data["dport"]), 0) + 1
+
+                    self.top_attackers[result_data["ipsrc"]] = \
+                        self.top_attackers.get(result_data["ipsrc"], 0) + 1
+
+                    self.attack_type_distribution[result_data["predicted_class"]] = \
+                        self.attack_type_distribution.get(
+                            result_data["predicted_class"], 0) + 1
+
+                    # Immediately save non-normal packet to MongoDB
+                    try:
+                        await self.mongodb.insert_non_normal_packets(result_data)
+                        logger.info(
+                            f"Saved non-normal packet of type {result_data['predicted_class']}")
+                    except Exception as e:
+                        logger.error(f"Failed to save non-normal packet: {e}")
+
+            # Store packet in memory
+            self._store_all_packets(result_data)
+
+        # Save statistics to db every 100 packets
+        if self.packet_counter >= 100:
+            try:
+                stats = self.get_statistics()
+                await self.mongodb.update_network_statistics(stats)
+                self._reset_transient_stats()
+                self.packet_counter = 0
+            except Exception as e:
+                logger.error(f"Failed to save network statistics: {e}")
 
 
 # Global service instance
