@@ -48,6 +48,22 @@ async def get_network_statistics():
             detail=f"Failed to retrieve network statistics: {str(e)}"
         )
 
+@router.get("/packets")
+async def get_packets():
+    """
+    Retrieve all stored packets
+    
+    Returns:
+    - All Packets
+    """
+    try:
+        return network_stats_service.get_all_packets()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve packets: {str(e)}"
+        )
+
 @router.post("/reset-network-statistics")
 async def reset_network_statistics():
     """
