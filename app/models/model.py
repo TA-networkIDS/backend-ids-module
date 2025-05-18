@@ -6,8 +6,8 @@ import joblib
 from app.preprocessing.preprocessing import preprocess_data
 
 # Multi-Class
-model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/1505_26/model.h5')
-label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/1505_26/label_encoder.pkl')
+model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/1905_full/model.h5')
+label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/dnn/1905_full/label_encoder.pkl')
 model = tf.keras.models.load_model(model_path)
 label_encoder = joblib.load(label_encoder_path) 
 
@@ -15,9 +15,9 @@ label_encoder = joblib.load(label_encoder_path)
 def predict(data_list):
     processed_features = preprocess_data(data_list)
     # For CNN and RNN
-    processed_features_rnncnn = processed_features.reshape(processed_features.shape[0], 1, processed_features.shape[1])
-    predictions = model.predict(processed_features_rnncnn)
-    # predictions = model.predict(processed_features)
+    # processed_features_rnncnn = processed_features.reshape(processed_features.shape[0], 1, processed_features.shape[1])
+    # predictions = model.predict(processed_features_rnncnn)
+    predictions = model.predict(processed_features)
     predicted_class_indices = np.argmax(predictions, axis=1)
     confidences = np.max(predictions, axis=1)
     
