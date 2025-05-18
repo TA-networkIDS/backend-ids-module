@@ -1,8 +1,12 @@
 from typing import Dict, Any, List
 from datetime import datetime
 import os
+import logging
+from app.mongodb import MongoDBClient
 from dotenv import load_dotenv
 load_dotenv()
+
+logger = logging.getLogger("myapp")
 
 
 class NetworkStatistics:
@@ -48,18 +52,19 @@ class NetworkStatistics:
         self.all_packets: List[Dict[str, Any]] = []
 
     def __init__(self):
-        """Ensure initialization for new instances"""
-        if not hasattr(self, 'packet_counter'):
-            self._initialize()
+        """Initialize network statistics and MongoDB connection"""
+        self._initialize()
+        # Create dedicated MongoDB connection for RMQ operations
+        self.mongodb = MongoDBClient()
 
-    def update_statistics(self, result_data: Dict[str, Any]):
+    async def update_statistics(self, result_data: Dict[str, Any]):
         """
         Update network statistics and store non-normal packets
 
-        :param additional_data: Additional packet details dictionary
-        :param prediction: Prediction result dictionary
+        :param result_data: Packet data with prediction results
         """
-        # print(result_data)
+        self.packet_counter += 1
+        
         # Severity count tracking
         if result_data["predicted_class"] == "Probe":
             self.low_sev_count += 1
@@ -106,12 +111,26 @@ class NetworkStatistics:
                     self.attack_type_distribution.get(
                         result_data["predicted_class"], 0) + 1
 
-        # Store non-normal packets for MongoDB
-        if result_data["predicted_class"] != "normal":
-            self.non_normal_packets.append(result_data)
+                # Immediately save non-normal packet to MongoDB
+                try:
+                    await self.mongodb.insert_non_normal_packets([result_data])
+                    logger.info(f"Saved non-normal packet of type {result_data['predicted_class']}")
+                except Exception as e:
+                    logger.error(f"Failed to save non-normal packet: {e}")
 
         # Store all packets
         self.all_packets.append(result_data)
+
+        # Save statistics every 100 packets
+        if self.packet_counter >= 100:
+            try:
+                stats = self.get_statistics()
+                await self.mongodb.update_network_statistics(stats)
+                logger.info("Saved network statistics to MongoDB")
+                self._reset_transient_stats()
+                self.packet_counter = 0
+            except Exception as e:
+                logger.error(f"Failed to save network statistics: {e}")
 
     def get_statistics(self) -> Dict[str, Any]:
         """

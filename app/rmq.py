@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict
 import aio_pika
 import asyncio
 import json
@@ -49,8 +50,8 @@ class PikaClient:
 
         logger.info("Starting RabbitMQ consumer")
         try:
-            # await self.queue.consume(self.handle_message, no_ack=False)
-            await self.queue.consume(self.handle_message, no_ack=True)
+            await self.queue.consume(self.handle_message, no_ack=False)
+            # await self.queue.consume(self.handle_message, no_ack=True)
         except Exception as e:
             logger.error(f"Consumer start error: {e}")
 
@@ -59,9 +60,8 @@ class PikaClient:
     async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage):
         """Handle incoming packet message"""
         try:
-            # Parse packet
+            # Parse packet, 
             packet = json.loads(message.body)
-            # print(packet)
             additional_data = packet["additional_data"]
             host_ip = os.getenv("HOST_IP_ADDRESS", "194.233.72.57")
 
@@ -83,7 +83,7 @@ class PikaClient:
             }
 
             # Update network statistics via service
-            network_stats_service.update_statistics(result_data)
+            await network_stats_service.update_statistics(result_data)
 
             # Broadcast only non-normal packets via WebSocket
             if prediction_result['predicted_class'] != 'normal':
@@ -93,15 +93,21 @@ class PikaClient:
                 # Broadcast to WebSocket clients
                 await ws_manager.broadcast(alert_payload)
 
-                print(
+                logger.warning(
                     f"[ALERT] Potential intrusion: {prediction_result['predicted_class']}")
 
             # Manual acknowledgement
-            # await message.ack()
+            await message.ack()
 
         except Exception as e:
             logger.error(f"Message handling error: {e}")
             await message.nack(requeue=True)
+
+    async def _process_packet(self, result_data: Dict[str, Any]):
+        """
+        Method to update network statistic stuff and
+        """
+        pass
 
     async def disconnect(self):
         try:

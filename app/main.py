@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from app.api.routes import routes
 from app.api.websockets import ws
 from app.rmq import PikaClient
+from app.mongodb import MongoDBClient
 import threading
 import asyncio
 import logging
@@ -50,10 +51,12 @@ def start_background_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # init rmq consumer when app starts
-    logger.critical("Starting RMQ consumer")
+    # Initialize MongoDB client for API endpoints
+    logger.info("Initializing MongoDB client")
+    app.mongodb = MongoDBClient()
 
-    # attach rmq consumer to app
+    # Initialize RMQ consumer
+    logger.critical("Starting RMQ consumer")
     q_name = os.getenv("RMQ_QUEUE_NAME")
     host = os.getenv("RMQ_HOST")
     port = os.getenv("RMQ_PORT")
@@ -61,6 +64,8 @@ async def lifespan(app: FastAPI):
     password = os.getenv("RMQ_PASSWORD")
     app.rmq_consumer = PikaClient(queue_name=q_name, host=host,
                                   port=int(port), user=user, password=password)
+    
+    # Setup RMQ consumer loop
     app.consumer_loop = asyncio.new_event_loop()
     tloop = threading.Thread(target=start_background_loop, args=(
         app.consumer_loop,), daemon=True)
@@ -70,8 +75,10 @@ async def lifespan(app: FastAPI):
         app.rmq_consumer.start_consumer(), app.consumer_loop)
 
     yield
-    # shutdown event
+    
+    # Shutdown events
     await app.rmq_consumer.disconnect()
+    await app.mongodb.close()
     app.consumer_loop.stop()
 
 
