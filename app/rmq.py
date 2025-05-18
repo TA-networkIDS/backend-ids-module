@@ -49,8 +49,8 @@ class PikaClient:
 
         logger.info("Starting RabbitMQ consumer")
         try:
-            # await self.queue.consume(self.handle_message, no_ack=False)
-            await self.queue.consume(self.handle_message, no_ack=True)
+            await self.queue.consume(self.handle_message, no_ack=False)
+            # await self.queue.consume(self.handle_message, no_ack=True)
         except Exception as e:
             logger.error(f"Consumer start error: {e}")
 
@@ -87,17 +87,14 @@ class PikaClient:
 
             # Broadcast only non-normal packets via WebSocket
             if prediction_result['predicted_class'] != 'normal':
-                # Prepare alert payload
-                alert_payload = json.dumps(result_data)
-
                 # Broadcast to WebSocket clients
-                await ws_manager.broadcast(alert_payload)
+                await ws_manager.broadcast(result_data)
 
                 print(
                     f"[ALERT] Potential intrusion: {prediction_result['predicted_class']}")
 
             # Manual acknowledgement
-            # await message.ack()
+            await message.ack()
 
         except Exception as e:
             logger.error(f"Message handling error: {e}")
