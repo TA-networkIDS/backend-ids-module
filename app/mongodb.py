@@ -134,7 +134,7 @@ class MongoDBClient:
         """
         try:
             current_time = time.time()
-            
+
             # Calculate the timestamp from X minutes ago (in seconds)
             delta_time_seconds = current_time - (minutes * 60)
 
@@ -180,6 +180,16 @@ class MongoDBClient:
                         for key, value in stats[field].items():
                             converted[key.replace("-", ".")] = value
                         stats[field] = converted
+
+            # Sort and limit top_ports and top_attacked_ports to top 10
+            for field in ["top_ports", "top_attacked_ports"]:
+                if field in stats:
+                    # Convert to list of tuples, sort by value (descending), and take top 10
+                    sorted_items = sorted(stats[field].items(),
+                                          key=lambda x: x[1],
+                                          reverse=True)[:10]
+                    # Convert back to dictionary
+                    stats[field] = dict(sorted_items)
 
                 logger.info("Retrieved network statistics from database")
                 return stats
