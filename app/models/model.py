@@ -24,11 +24,17 @@ def predict(data_list):
     predicted_class_labels = label_encoder.inverse_transform(predicted_class_indices).tolist()
     
     results = []
+    confidence_threshold = 0.75
     for label, confidence in zip(predicted_class_labels, confidences):
-        results.append({
-            'predicted_class': label,
-            'confidence': float(confidence)
-        })
+        if float(confidence) < confidence_threshold and label != 'normal':
+            results.append({
+                'predicted_class': 'normal',
+                'confidence': float(0)
+            })
+        else:
+            results.append({
+                'predicted_class': label,
+                'confidence': float(confidence)
+            })
     
-
     return results
