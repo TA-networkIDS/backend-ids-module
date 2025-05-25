@@ -6,8 +6,8 @@ import joblib
 from app.preprocessing.preprocessing import preprocess_data
 
 # Multi-Class
-model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/1905_full/model.h5')
-label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/1905_full/label_encoder.pkl')
+model_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/2505_combined_full/model.h5')
+label_encoder_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/2505_combined_full/label_encoder.pkl')
 model = tf.keras.models.load_model(model_path)
 label_encoder = joblib.load(label_encoder_path) 
 

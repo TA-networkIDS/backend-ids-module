@@ -18,7 +18,7 @@ SELECTED_FEATURES = [
 ]
 
 # Multi-Class
-preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/1905_full/preprocessor.joblib')
+preprocessor_path = os.path.join(os.path.dirname(__file__), '../../trained_models/cnn/2505_combined_full/preprocessor.joblib')
 preprocessor = joblib.load(preprocessor_path)
 
 
