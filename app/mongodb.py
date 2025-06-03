@@ -32,7 +32,6 @@ class MongoDBClient:
             # Define collections
             self.non_normal_packets_collection = self.db["non_normal_packets"]
             self.network_statistics_collection = self.db["network_statistics"]
-            self.packets_collection = self.db["all_packets"]
 
             logger.info("MongoDB connection initialized successfully")
         except Exception as e:

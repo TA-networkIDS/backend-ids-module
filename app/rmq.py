@@ -8,6 +8,7 @@ from app.api.websockets.ws import manager as ws_manager
 from app.network_statistics import network_stats_service
 from dotenv import load_dotenv
 import os
+import time
 load_dotenv()
 
 logger = logging.getLogger("myapp")
@@ -26,7 +27,7 @@ class PikaClient:
         self.queue = None
 
         # batch processing test
-        self.batch_size = 10
+        self.batch_size = 15
         self.message_batch = []
         self.batch_lock = asyncio.Lock()
 
@@ -54,7 +55,7 @@ class PikaClient:
     async def start_consumer(self):
         await self.start_connection()
         # await self.channel.set_qos(prefetch_count=1)
-        await self.channel.set_qos(prefetch_count=10)
+        await self.channel.set_qos(prefetch_count=0)
 
         logger.info("Starting RabbitMQ consumer")
         try:
@@ -133,6 +134,10 @@ class PikaClient:
             outbound_results = []
 
             for packet in packets:
+
+                # add t2 time, time when packet is received
+                packet["evaluation_time"]["t2"] = time.time() * 1000
+
                 if packet["additional_data"]["ipdst"] == host_ip:
                     inbound_packets.append(packet)
                 else:
@@ -146,11 +151,16 @@ class PikaClient:
             if inbound_packets:
                 predictions = model_predict(inbound_packets)
                 inbound_results = [
-                    {**p["additional_data"], **pred}
+                    {**p["additional_data"], **pred, **p["evaluation_time"]}
                     for p, pred in zip(inbound_packets, predictions)
                 ]
             else:
                 inbound_results = []
+
+            post_prediction_time = time.time() * 1000
+            # add t3 time, time after packets inferenced
+            for result in inbound_results:
+                result["evaluation_time"]["t3"] = post_prediction_time
 
             # Combine results
             all_results = inbound_results + outbound_results
