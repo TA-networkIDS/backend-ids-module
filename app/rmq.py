@@ -160,7 +160,7 @@ class PikaClient:
             post_prediction_time = time.time() * 1000
             # add t3 time, time after packets inferenced
             for result in inbound_results:
-                result["evaluation_time"]["t3"] = post_prediction_time
+                result["t3"] = post_prediction_time
 
             # Combine results
             all_results = inbound_results + outbound_results
